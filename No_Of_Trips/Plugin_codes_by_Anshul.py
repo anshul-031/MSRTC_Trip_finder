@@ -8,13 +8,14 @@ import resources
 from No_Of_Trips_dialog import No_Of_TripsDialog
 import os.path
 from qgis.core import QgsMessageLog
-from qgis.core import QgsVectorLayer, QgsDataSourceURI, QgsMapLayerRegistry
+from qgis.core import QgsVectorLayer, QgsDataSourceURI, QgsMapLayerRegistry, QgsRasterLayer 
+from qgis.utils import *
 
 
 #Initially Day parameter in the below function is not used anywhere.  
 def plugin_code_by_anshul_iitb(BusStopFrom,BusStopTo,TimeFrom, TimeTo, Day ):
 
-	QMessageBox.information(None,"Plugin function by Anshul the great","\nSource: "+ BusStopFrom+"\nDestination: "+ BusStopTo+ "\nTime:  " +TimeFrom+" to "+ TimeTo+"\nDay"+ Day)
+	#QMessageBox.information(None,"Plugin function by Anshul the great","\nSource: "+ BusStopFrom+"\nDestination: "+ BusStopTo+ "\nTime:  " +TimeFrom+" to "+ TimeTo+"\nDay"+ Day)
 	import pandas
 	import psycopg2
 	import pandas.io.sql as psql
@@ -25,10 +26,10 @@ def plugin_code_by_anshul_iitb(BusStopFrom,BusStopTo,TimeFrom, TimeTo, Day ):
 					"\nUser_Input_Day-"+ Day )
 	try:
 	    conn=psycopg2.connect("dbname='MTP_transportation' user='postgres' host='localhost' password='anshuL@iitb'")
-	    QMessageBox.information(None,"Plugin stage process","DB connected")
+	    #QMessageBox.information(None,"Plugin stage process","DB connected")
 	    print "DB connected"
 	except Exception as e:
-	    QMessageBox.information(None,"Plugin stage process","DB not connected")
+	    QMessageBox.information(None,"Error","Database not connected")
 	    return
 	    print (e)
 
@@ -71,7 +72,7 @@ def plugin_code_by_anshul_iitb(BusStopFrom,BusStopTo,TimeFrom, TimeTo, Day ):
 	#             Required_From_KM.append(RouteSequenceFile['KM'][i])
 	    print len(Required_Route_Sequence)
 	    print Required_Route_Sequence
-	    QMessageBox.information(None,"Required Routes","Total No.of routes are "+str(len(Required_Route_Sequence))+'\n Routes are '+ str(Required_Route_Sequence))
+	    QMessageBox.information(None,"All Possible Routes","Total No.of all possible routes are "+str(len(Required_Route_Sequence))+'\n\n Routes are '+ str(Required_Route_Sequence))
 	    return Required_Route_Sequence
 		
 
@@ -104,7 +105,7 @@ def plugin_code_by_anshul_iitb(BusStopFrom,BusStopTo,TimeFrom, TimeTo, Day ):
 	    print (len(df))
 	    print(df)
 	   
-	    QMessageBox.information(None,"Trips based on Sinnar July 2019 and ETIM August 19 Trip Mapping", "Total number of Trips"+str(len(df['Trips'].tolist()))+"\nTrips are "+ str([str(i) for i in df['Trips'].tolist()]))
+	    QMessageBox.information(None,"All possible Trips", "Total number of all possible Trips are "+str(len(df['Trips'].tolist()))+"\n\nTrips are "+ str([str(i) for i in df['Trips'].tolist()]))
 	    return df
 
 	#     return Required_Trip_Sequence
@@ -233,32 +234,49 @@ def plugin_code_by_anshul_iitb(BusStopFrom,BusStopTo,TimeFrom, TimeTo, Day ):
 	print l
 
 	ABCTripsIrrespectiveTime['Trips'][list_Final_output_index].tolist()
-	QMessageBox.information(None,"Final output","No. of Trips "+str(len(ABCTripsIrrespectiveTime['Trips'][list_Final_output_index].tolist()))+"\n Final Trips betweeen required Time :"+ l)
+#	QMessageBox.information(None,"Final output","No. of Bus Trips are "+str(len(ABCTripsIrrespectiveTime['Trips'][list_Final_output_index].tolist()))+"\n Final Trips betweeen provided bus stops and Time are :"+ l[1:len(l)-1])
+	
+	try:
+	    conn=psycopg2.connect("dbname='MTP_transportation' user='postgres' host='localhost' password='anshuL@iitb'")
+	    #QMessageBox.information(None,"Final output","DB connected")
+	    print "DB connected"
+	except:
+	    QMessageBox.information(None,"Error","Database not connected")
+	    print 'DB Not connected'
+	str1=''
+	for i in ABCTripsIrrespectiveTime['Trips'][list_Final_output_index].tolist():
+		cur=conn.cursor()
+		sql="select distinct abc_status from abc_july_final where trip_numbe='"+i+"'"	
+		cur.execute(sql)
+		temp=str(cur.fetchone())
+		str1=str1+i+' , '+temp[2:len(temp)-1]+'\n'
+	
 
+	msg = QMessageBox()
+	msg.setText("Final Number of Bus Trips are "+str(len(ABCTripsIrrespectiveTime['Trips'][list_Final_output_index].tolist()))+"\n Final Trips betweeen provided bus stops and Time are :"+ l[1:len(l)-1])
+
+	msg.setInformativeText("ABC Details of trips")
+	msg.setWindowTitle("Final Output")
+	msg.setDetailedText("ABC details:\n"+str1)
+	retval = msg.exec_()
+
+	
 	# In[13]:
-
-
-
-	# text = 'abcdefg'
-	# text = text[:1] + 'Z' + text[2:]
-	# print text
-
-
-	# In[14]:
 
 
 
 	try:
 	    conn=psycopg2.connect("dbname='MTP_transportation' user='postgres' host='localhost' password='anshuL@iitb'")
-	    QMessageBox.information(None,"Final output","DB connected")
+	    #QMessageBox.information(None,"Final output","DB connected")
 	    print "DB connected"
 	except:
-	    QMessageBox.information(None,"Final output","DB not connected")
+	    QMessageBox.information(None,"Error","Database not connected")
 	    print 'DB Not connected'
 	try:
 	    cur=conn.cursor()
+	    sql='DROP TABLE IF EXISTS output;'
+	    cur.execute(sql)
 	    sql = """
-	    DROP TABLE IF EXISTS output;
 	CREATE TABLE output AS (
 
 	SELECT 
@@ -268,26 +286,81 @@ def plugin_code_by_anshul_iitb(BusStopFrom,BusStopTo,TimeFrom, TimeTo, Day ):
 	  public.abc_july_final
 	  where trip_numbe in """ + l +')'
 	# Here variable 'l' above in the above SQL query is the list containing all the required bus trips to be displayed  
-	    cur.execute(sql)
+	    if len(ABCTripsIrrespectiveTime['Trips'][list_Final_output_index].tolist())!=0:
+	    	cur.execute(sql)
 	
 	    conn.commit()
 	    cur.close()
 	except Exception as e:
 	    print (e)
+
+
+	#Removing all layer if any present 		
+	QgsMapLayerRegistry.instance().removeAllMapLayers()
+
+	
+
+	#loading BaseLayer as OSM
+	uri="url=http://a.tile.openstreetmap.org/{z}/{x}/{y}.png&zmax=19&zmin=0&type=xyz"
+	osm_layer=QgsRasterLayer(uri,'OSM','wms')
+	if not osm_layer.isValid():
+    	    print ("Layer failed to load!")
+	QgsMapLayerRegistry.instance().addMapLayer(osm_layer)
+	print 'Finished'
+
+
+
+	
+	#if len(ABCTripsIrrespectiveTime['Trips'][list_Final_output_index].tolist())!=0:
+
 	uri = QgsDataSourceURI()
 	uri.setConnection("localhost", "5432", "MTP_transportation", "postgres", "anshuL@iitb")
-	layers = QgsMapLayerRegistry.instance().mapLayers()
-	for name, layer in layers.iteritems():
-	    if layer.name() == ('output'):
-	       QgsMapLayerRegistry.instance().removeMapLayers( [layer.id()] )
-	    if layer.name() == ('sinnar_villages_cleaned'):
-	       QgsMapLayerRegistry.instance().removeMapLayers( [layer.id()] )
-	uri.setDataSource ("public", "sinnar_villages_cleaned", "geom")
-	vlayer=QgsVectorLayer (uri .uri(False), "sinnar_villages_cleaned", "postgres")
-	QgsMapLayerRegistry.instance().addMapLayer(vlayer)
-	
-       	uri.setDataSource ("public", "output", "geom")
+	uri.setDataSource ("public", "output", "geom")
 	vlayer=QgsVectorLayer (uri .uri(False), 'output', "postgres")
 	QgsMapLayerRegistry.instance().addMapLayer(vlayer)
 
+	#zooming to the output layer	
+	vlayer.selectAll()
+	mCanvas = iface.mapCanvas()
+	mCanvas.zoomToSelected()
+	vlayer.removeSelection()
 
+	iface.mapCanvas().refreshAllLayers()
+	print 'Linewidth and color changed'
+
+	#setting the color of output layer named 'vlayer'
+	vlayer.selectAll()
+	iface.mapCanvas().setSelectionColor( QColor("blue") )
+	
+	print 'color changed'
+
+
+	#setting line width of output layer named 'vlayer'  
+	symbols = vlayer.rendererV2().symbols()
+	for symbol in symbols:
+	    symbol.setWidth(1)
+	print 'Linewidth changed'
+
+	# Refresh in order the see the changes
+	iface.mapCanvas().refreshAllLayers()
+	print 'Linewidth and color changed'
+
+		#hiding layer Panel for bigger user dashboard  
+#		from PyQt4.QtGui import QDockWidget 
+#		for x in iface.mainWindow().findChildren(QDockWidget): 
+#		    if x.objectName() == 'Layers': 
+#			x.hide()
+		
+#zooming to the output layer	
+#	vlayer.selectAll()
+#	mCanvas = iface.mapCanvas()
+#	mCanvas.zoomToSelected()
+#	vlayer.removeSelection()
+
+
+
+
+
+
+
+	
