@@ -214,10 +214,12 @@ class timetablecreater:
 	    else:
 		import pandas
 		df=pandas.read_csv('~/.qgis2/python/plugins/timetablecreater/abc.csv')
+		import time
+		time.sleep(2)		
 		df.to_csv('~/Desktop/form4.csv', index=False)
 		df=pandas.read_csv('~/.qgis2/python/plugins/timetablecreater/bcd.csv')
 		df.to_csv('~/Desktop/PHCTimeTable.csv', index=False)
-
+		QMessageBox.information(None,"Operation completed", "Form4 and PHCTimeTable has been created and saved to Form4.csv, PHCTimeTable.csv respectively on Desktop")
 		pass
 
 
